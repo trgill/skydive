@@ -97,8 +97,8 @@ do
   DEPLOYMENT_MODE=$mode vagrant up --provision-with common
   DEPLOYMENT_MODE=$mode vagrant provision
 
-  vagrant ssh analyzer1 -- sudo ntpdate fr.pool.ntp.org
-  vagrant ssh agent1 -- sudo ntpdate fr.pool.ntp.org
+  vagrant ssh analyzer1 -- sudo ntpdate 10.11.160.238 fr.pool.ntp.org || true
+  vagrant ssh agent1 -- sudo ntpdate 10.11.160.238 fr.pool.ntp.org || true
 
   vagrant ssh analyzer1 -- sudo cat /etc/skydive/skydive.yml
 
