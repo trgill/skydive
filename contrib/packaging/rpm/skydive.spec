@@ -31,7 +31,7 @@
 %endif
 %endif
 
-%{!?fullver:%global fullver 0.20.3}
+%{!?fullver:%global fullver 0.20.4}
 %define version %{extractversion %{fullver}}
 %{!?tag:%global tag 1}
 
@@ -245,6 +245,9 @@ fi
 %attr(0644,root,root) %{_mandir}/man8/skydive-selinux.8.*
 
 %changelog
+* Thu Apr 11 2019 Sylvain Afchain <safchain@redhat.com> - 0.20.4-1
+- Bump to version 0.20.4
+
 * Tue Mar 26 2019 Sylvain Afchain <safchain@redhat.com> - 0.20.3-1
 - Bump to version 0.20.3
 

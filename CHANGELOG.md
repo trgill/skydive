@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.4] - 2019-04-11
+### Changed
+- Fix ansible playbook/roles for tripleo deployment
+
+## [0.20.3] - 2019-03-13
+### Changed
+- Fix ansible playbook/roles for tripleo deployment
+
 ## [0.20.2] - 2019-03-13
 ### Changed
 - Fix ansible playbook/roles for tripleo deployment
