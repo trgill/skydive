@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.1] - 2019-05-22
+### Changed
+- Ansible fixes
+
 ## [0.23.0] - 2019-05-15
 ### Added
 - OVN probe with support for logical switches, routers, ports and ACLs
