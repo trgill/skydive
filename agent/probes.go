@@ -25,6 +25,7 @@ import (
 	"github.com/skydive-project/skydive/logging"
 	"github.com/skydive-project/skydive/probe"
 	tp "github.com/skydive-project/skydive/topology/probes"
+	"github.com/skydive-project/skydive/topology/probes/blockdev"
 	"github.com/skydive-project/skydive/topology/probes/docker"
 	"github.com/skydive-project/skydive/topology/probes/libvirt"
 	"github.com/skydive-project/skydive/topology/probes/lldp"
@@ -79,6 +80,8 @@ func NewTopologyProbeBundle(g *graph.Graph, hostNode *graph.Node) (*probe.Bundle
 			handler, err = new(ovsdb.Probe).Init(ctx, bundle)
 		case "lxd":
 			handler, err = new(lxd.ProbeHandler).Init(ctx, bundle)
+		case "blockdev":
+			handler, err = new(blockdev.ProbeHandler).Init(ctx, bundle)
 		case "docker":
 			handler, err = new(docker.ProbeHandler).Init(ctx, bundle)
 		case "lldp":
