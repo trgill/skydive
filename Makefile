@@ -62,6 +62,7 @@ EASYJSON_FILES_TAG=\
 	topology/neighbors.go \
 	topology/nexthop.go \
 	topology/routes.go \
+	topology/probes/blockdev/blockdev.go \
 	topology/probes/docker/metadata.go \
 	topology/probes/libvirt/metadata.go \
 	topology/probes/lldp/metadata.go \

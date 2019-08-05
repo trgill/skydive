@@ -17,6 +17,7 @@ var setupFixedImages = function(labelMap) {
 };
 
 var nodeImgMap = setupFixedImages({
+  "blockdev": "blockdev",
   "host": "host",
   "port": "port",
   "ovsport": "port",
@@ -60,6 +61,7 @@ var nodeImgMap = setupFixedImages({
 });
 
 var managerImgMap = setupFixedImages({
+  "blockdev": "blockdev",
   "docker": "docker",
   "lxd": "lxd",
   "neutron": "openstack",
