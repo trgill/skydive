@@ -28,6 +28,54 @@ import (
 	"github.com/skydive-project/skydive/graffiti/graph"
 )
 
+type LVMetadata struct {
+	Name            string
+	Path            string
+	DMPath          string
+	VG              string
+	Attr            string
+	Size            string
+	Pool            string
+	Origin          string
+	DataPercent     string
+	MetadataPercent string
+	MovePV          string
+	MirrorLog       string
+	CopyPercent     string
+	ConvertLV       string
+	KernelMajor     string
+	KernelMinor     string
+	UUID            string
+	Labels          graph.Metadata `field:"LVMetadata"`
+}
+type PVMetadata struct {
+	Name    string
+	VG      string
+	Fmt     string
+	Attr    string
+	Size    string
+	Free    string
+	DevSize string
+	UUID    string
+	Major   string
+	Minor   string
+	Labels  graph.Metadata `field:"PVMetadata"`
+}
+
+type VGMetadata struct {
+	Name       string
+	Attr       string
+	ExtentSize string
+	PVCount    string
+	LVCount    string
+	SnanpCount string
+	Size       string
+	Free       string
+	UUID       string
+	Profile    string
+	Labels     graph.Metadata `field:"VGMetadata"`
+}
+
 // Metadata describe the metadata of a block device
 // easyjson:json
 // gendecoder

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"path"
 	"sync"
 	"time"
 
@@ -78,6 +79,77 @@ type BlockDeviceAttrs struct {
 	kBWrtnPerS int64
 	kBRead     int64
 	kBWrtn     int64
+}
+
+type VolumeGroup struct {
+	Name       string `json:"vg_name,omitempty"`
+	Attr       string `json:"vg_attr,omitempty"`
+	ExtentSize string `json:"vg_extent_size,omitempty"`
+	PVCount    string `json:"pv_count,omitempty"`
+	LVCount    string `json:"lv_count,omitempty"`
+	SnanpCount string `json:"snap_count,omitempty"`
+	Size       string `json:"vg_size,omitempty"`
+	Free       string `json:"vg_free,omitempty"`
+	UUID       string `json:"vg_uuid,omitempty"`
+	Profile    string `json:"vg_profile,omitempty"`
+}
+
+type VGReports struct {
+	LVList []VolumeGroup `json:"vg,omitempty"`
+}
+
+type VGReport struct {
+	Report []VGReports `json:"report,omitempty"`
+}
+
+type PhysicalVolume struct {
+	Name    string `json:"pv_name,omitempty"`
+	VG      string `json:"vg_name",omitempty"`
+	Fmt     string `json:"pv_fmt",omitempty"`
+	Attr    string `json:"pv_attr",omitempty"`
+	Size    string `json:"pv_size",omitempty"`
+	Free    string `json:"pv_free",omitempty"`
+	Major   string `json:"pv_major",omitempty"`
+	Minor   string `json:"pv_minor",omitempty"`
+	DevSize string `json:"dev_size",omitempty"`
+	UUID    string `json:"pv_uuid",omitempty"`
+}
+
+type PVReports struct {
+	LVList []PhysicalVolume `json:"pv,omitempty"`
+}
+
+type PVReport struct {
+	Report []PVReports `json:"report,omitempty"`
+}
+
+type LogicalVolume struct {
+	Name            string `json:"lv_name,omitempty"`
+	Path            string `json:"lv_path,omitempty"`
+	DMPath          string `json:"lv_dm_path,omitempty"`
+	Layout          string `json:"lv_layout,omitempty"`
+	VG              string `json:"vg_name,omitempty"`
+	Attr            string `json:"lv_attr,omitempty"`
+	Size            string `json:"lv_size,omitempty"`
+	Pool            string `json:"pool_lv,omitempty"`
+	Origin          string `json:"origin,omitempty"`
+	DataPercent     string `json:"data_percent,omitempty"`
+	MetadataPercent string `json:"metadata_percent,omitempty"`
+	MovePV          string `json:"move_pv,omitempty"`
+	MirrorLog       string `json:"mirror_log,omitempty"`
+	CopyPercent     string `json:"copy_percent,omitempty"`
+	ConvertLV       string `json:"convert_lv,omitempty"`
+	KernelMajor     string `json:"lv_kernel_major,omitempty"`
+	KernelMinor     string `json:"lv_kernel_minor,omitempty"`
+	UUID            string `json:"lv_uuid,omitempty"`
+}
+
+type LVReports struct {
+	LVList []LogicalVolume `json:"lv,omitempty"`
+}
+
+type LVReport struct {
+	Report []LVReports `json:"report,omitempty"`
 }
 
 // BlockDevice used for JSON parsing
@@ -186,7 +258,7 @@ func (bd *BlockDevice) getName() string {
 	return base
 }
 
-func (p *ProbeHandler) addGroupByName(name string, WWN string) *graph.Node {
+func (p *ProbeHandler) addGroupByName(name string, ID string) *graph.Node {
 	p.Lock()
 	defer p.Unlock()
 	if p.Groups[name] != nil {
@@ -212,12 +284,87 @@ func (p *ProbeHandler) addGroupByName(name string, WWN string) *graph.Node {
 }
 
 // addGroup adds a group to the graph
-func (p *ProbeHandler) addGroup(blockdev BlockDevice, WWN string) *graph.Node {
-	groupName := blockdev.getID()
-	return p.addGroupByName(groupName, WWN)
+func (p *ProbeHandler) addGroup(blockdev BlockDevice, ID string) *graph.Node {
+	groupName := blockdev.getName()
+	return p.addGroupByName(groupName, ID)
 }
 
-func (p *ProbeHandler) getMetaData(blockdev BlockDevice, childCount int, parentWWN string) (metadata graph.Metadata) {
+func (p *ProbeHandler) getPVMetaData(pv PhysicalVolume) (metadata graph.Metadata) {
+	pvMetadata := PVMetadata{
+		Name:    pv.Name,
+		VG:      pv.VG,
+		Fmt:     pv.Fmt,
+		Attr:    pv.Attr,
+		Size:    pv.Size,
+		Free:    pv.Free,
+		DevSize: pv.DevSize,
+		Major:   pv.Major,
+		Minor:   pv.Minor,
+		UUID:    pv.UUID,
+	}
+
+	metadata = graph.Metadata{
+		"PV":         pvMetadata,
+		"Type":       lvmNodeType,
+		"MajorMinor": pv.Major + ":" + pv.Minor,
+	}
+
+	return metadata
+}
+func (p *ProbeHandler) getVGMetaData(vg VolumeGroup) (metadata graph.Metadata) {
+	vgMetadata := VGMetadata{
+		Name:       vg.Name,
+		Attr:       vg.Attr,
+		ExtentSize: vg.ExtentSize,
+		PVCount:    vg.PVCount,
+		LVCount:    vg.LVCount,
+		SnanpCount: vg.SnanpCount,
+		Size:       vg.Size,
+		Free:       vg.Free,
+		UUID:       vg.UUID,
+		Profile:    vg.Profile,
+	}
+
+	metadata = graph.Metadata{
+		"VG": vgMetadata,
+	}
+
+	return metadata
+}
+func (p *ProbeHandler) getLVMetaData(lv LogicalVolume) (metadata graph.Metadata) {
+	lvMetadata := LVMetadata{
+		Name:            lv.Name,
+		Path:            lv.Path,
+		DMPath:          lv.DMPath,
+		VG:              lv.VG,
+		Attr:            lv.Attr,
+		Size:            lv.Size,
+		Pool:            lv.Pool,
+		Origin:          lv.Origin,
+		DataPercent:     lv.DataPercent,
+		MetadataPercent: lv.MetadataPercent,
+		MovePV:          lv.MovePV,
+		MirrorLog:       lv.MirrorLog,
+		CopyPercent:     lv.CopyPercent,
+		ConvertLV:       lv.ConvertLV,
+		KernelMajor:     lv.KernelMajor,
+		KernelMinor:     lv.KernelMinor,
+		UUID:            lv.UUID,
+	}
+
+	metadata = graph.Metadata{
+		"LV":         lvMetadata,
+		"MajorMinor": lv.KernelMajor + ":" + lv.KernelMinor,
+		"Type":       lvmNodeType,
+		"Path":       lv.Path,
+		"DMPath":     lv.DMPath,
+	}
+
+	return metadata
+}
+
+func (p *ProbeHandler) getMetaData(blockdev BlockDevice, childCount int,
+	parentWWN string) (metadata graph.Metadata) {
 	var blockdevMetadata Metadata
 	var nodeType string
 
@@ -319,24 +466,170 @@ func (p *ProbeHandler) findBlockDev(path string, id string, newDevInfo []BlockDe
 	return false
 }
 
+func (p *ProbeHandler) getLVs() ([]LogicalVolume, error) {
+	var (
+		cmdOut []byte
+		err    error
+		report LVReport
+	)
+
+	lvsPath := p.Ctx.Config.GetString("agent.topology.blockdev.lvs_path")
+
+	if lvsPath == "" {
+		lvsPath = "/usr/sbin/lvs"
+	}
+	if cmdOut, err = exec.Command(lvsPath, "--reportformat", "json", "-o",
+		"lv_name,lv_path,lv_dm_path,lv_layout,vg_name,lv_attr,lv_size,pool_lv,origin,data_percent,metadata_percent,move_pv,mirror_log,copy_percent,convert_lv,lv_kernel_major,lv_kernel_minor,lv_uuid").Output(); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(cmdOut, &report); err != nil {
+		return nil, err
+	}
+	if len(report.Report) == 0 {
+		return nil, nil
+	}
+	return report.Report[0].LVList, nil
+}
+
+func (p *ProbeHandler) getVGs() ([]VolumeGroup, error) {
+	var (
+		cmdOut []byte
+		err    error
+		report VGReport
+	)
+
+	vgsPath := p.Ctx.Config.GetString("agent.topology.blockdev.vgs_path")
+
+	if vgsPath == "" {
+		vgsPath = "/usr/sbin/vgs"
+	}
+	if cmdOut, err = exec.Command(vgsPath, "--reportformat", "json", "-o", "vg_name,vg_attr,vg_extent_size,pv_count,lv_count,snap_count,vg_size,vg_free,vg_uuid,vg_profile").Output(); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(cmdOut, &report); err != nil {
+		return nil, err
+	}
+	if len(report.Report) == 0 {
+		return nil, nil
+	}
+	return report.Report[0].LVList, nil
+}
+
+func (p *ProbeHandler) getPVs() ([]PhysicalVolume, error) {
+	var (
+		cmdOut []byte
+		err    error
+		report PVReport
+	)
+
+	pvsPath := p.Ctx.Config.GetString("agent.topology.blockdev.pvs_path")
+
+	if pvsPath == "" {
+		pvsPath = "/usr/sbin/pvs"
+	}
+	if cmdOut, err = exec.Command(pvsPath, "--reportformat", "json", "-o",
+		"pv_name,vg_name,pv_fmt,pv_attr,pv_size,pv_free,dev_size,pv_uuid,pv_major,pv_minor").Output(); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(cmdOut, &report); err != nil {
+		return nil, err
+	}
+	if len(report.Report) == 0 {
+		return nil, nil
+	}
+	return report.Report[0].LVList, nil
+}
+
+func (p *ProbeHandler) getBlockDevices() ([]BlockDevice, error) {
+	var (
+		cmdOut []byte
+		err    error
+		intf   interface{}
+		result Devices
+	)
+
+	lsblkPath := p.Ctx.Config.GetString("agent.topology.blockdev.lsblk_path")
+
+	if lsblkPath == "" {
+		lsblkPath = "/usr/bin/lsblk"
+	}
+
+	if cmdOut, err = exec.Command(lsblkPath, "-pO", "--json").Output(); err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal([]byte(cmdOut[:]), &intf); err != nil {
+		return nil, err
+	}
+
+	if err = mapstructure.WeakDecode(intf, &result); err != nil {
+		return nil, err
+	}
+
+	return result.Blockdevices, nil
+}
+
 func (p *ProbeHandler) deleteIfRemoved(currentDevInfo blockdevInfo, newDevInfo []BlockDevice) {
 	if p.findBlockDev(currentDevInfo.Path, currentDevInfo.ID, newDevInfo) == false {
 		p.unregisterBlockdev(currentDevInfo.Path)
 	}
 }
 
-func (p *ProbeHandler) registerBlockdev(blockdev BlockDevice, parentWWN string) *graph.Node {
-	var groupNode *graph.Node
+func (p *ProbeHandler) registerLVMDevs(vgList []VolumeGroup, pvList []PhysicalVolume, lvList []LogicalVolume) *graph.Node {
+	var lvMetaData graph.Metadata
+
+	for _, vg := range vgList {
+		_ = p.addGroupByName(vg.Name, vg.UUID)
+		fmt.Println(vg)
+	}
+
+	for _, lv := range lvList {
+		lvNode := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"Path": lv.Path})
+
+		if lvNode == nil {
+			lvMetaData = p.getLVMetaData(lv)
+			var err error
+			if lvNode, err = p.Ctx.Graph.NewNode(graph.GenID(), lvMetaData); err != nil {
+				p.Ctx.Logger.Error(err)
+				return nil
+			}
+		}
+
+		groupNode := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"Name": lv.VG})
+
+		topology.AddOwnershipLink(p.Ctx.Graph, groupNode, lvNode, nil)
+
+		fmt.Println(lv)
+	}
+	for _, pv := range pvList {
+		pvNode := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"Name": pv.Name})
+
+		if pvNode == nil {
+			lvMetaData = p.getPVMetaData(pv)
+			var err error
+			if pvNode, err = p.Ctx.Graph.NewNode(graph.GenID(), lvMetaData); err != nil {
+				p.Ctx.Logger.Error(err)
+				return nil
+			}
+		}
+		groupNode := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"Name": pv.VG})
+
+		topology.AddOwnershipLink(p.Ctx.Graph, groupNode, pvNode, nil)
+		fmt.Println(pv)
+	}
+
+	return nil
+}
+
+func (p *ProbeHandler) registerBlockdev(blockdev BlockDevice, parentWWN string) []*graph.Node {
+	var groupNodes []*graph.Node
 	childCount := len(blockdev.Children)
 	if childCount > 0 {
 		for i := range blockdev.Children {
-			groupNode = p.registerBlockdev(blockdev.Children[i], blockdev.WWN)
-		}
-		if blockdev.Type == multipathType {
-			groupNode = p.addGroup(blockdev, parentWWN)
+			groupNodes = p.registerBlockdev(blockdev.Children[i], blockdev.WWN)
 		}
 	} else {
-		groupNode = p.addGroup(blockdev, parentWWN)
+		groupNodes = append(groupNodes, p.addGroup(blockdev, parentWWN))
 	}
 
 	p.Lock()
@@ -344,13 +637,13 @@ func (p *ProbeHandler) registerBlockdev(blockdev BlockDevice, parentWWN string) 
 	var graphMetaData graph.Metadata
 
 	if _, ok := p.blockdevMap[blockdev.Name]; ok {
-		return groupNode
+		return groupNodes
 	}
 
 	p.Ctx.Graph.Lock()
 	defer p.Ctx.Graph.Unlock()
 
-	node := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"Path": blockdev.getPath()})
+	node := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"MajorMinor": blockdev.MajMin})
 
 	if node == nil {
 		graphMetaData = p.getMetaData(blockdev, childCount, parentWWN)
@@ -369,22 +662,24 @@ func (p *ProbeHandler) registerBlockdev(blockdev BlockDevice, parentWWN string) 
 			}
 		}
 
-		topology.AddOwnershipLink(p.Ctx.Graph, groupNode, node, nil)
+		for _, groupNode := range groupNodes {
+			topology.AddLink(p.Ctx.Graph, groupNode, node, "ingroup", nil)
+		}
 
 		// Link physical disks and DVD/rom devices to the blockdevGroupName
 		if blockdev.Type == "disk" || blockdev.Type == "rom" {
 			linkMetadata := graph.Metadata{
 				"Type": "blockdevlink",
 			}
-			topology.AddLink(p.Ctx.Graph, p.Groups[blockdevGroupName], node, "connected", linkMetadata)
+			topology.AddLink(p.Ctx.Graph, p.Groups[blockdevGroupName], node, "isablockdev", linkMetadata)
 		}
 
 	}
 
 	for i := range blockdev.Children {
-		childNode := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"Name": blockdev.Children[i].getName()})
+		childNode := p.Ctx.Graph.LookupFirstNode(graph.Metadata{"MajorMinor": blockdev.Children[i].MajMin})
 		if childNode != nil {
-			topology.AddLink(p.Ctx.Graph, childNode, node, "connected", nil)
+			topology.AddLink(p.Ctx.Graph, childNode, node, "uses", nil)
 		}
 	}
 
@@ -394,7 +689,7 @@ func (p *ProbeHandler) registerBlockdev(blockdev BlockDevice, parentWWN string) 
 		Path: blockdev.Path,
 		Node: node,
 	}
-	return groupNode
+	return groupNodes
 }
 
 // Prior to version 2.33 lsblk generated JSON that encodes all values
@@ -443,27 +738,18 @@ func (p *ProbeHandler) unregisterBlockdev(id string) {
 
 func (p *ProbeHandler) connect() error {
 	var (
-		cmdOut []byte
 		err    error
-		intf   interface{}
 		result Devices
 	)
+	vgList, _ := p.getVGs()
+	pvList, _ := p.getPVs()
+	lvList, _ := p.getLVs()
 
-	lsblkPath := p.Ctx.Config.GetString("agent.topology.blockdev.lsblk_path")
+	p.registerLVMDevs(vgList, pvList, lvList)
 
-	if lsblkPath == "" {
-		lsblkPath = "/usr/bin/lsblk"
-	}
+	blockDevices, err := p.getBlockDevices()
 
-	if cmdOut, err = exec.Command(lsblkPath, "-pO", "--json").Output(); err != nil {
-		return err
-	}
-
-	if err = json.Unmarshal([]byte(cmdOut[:]), &intf); err != nil {
-		return err
-	}
-
-	if err = mapstructure.WeakDecode(intf, &result); err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -473,8 +759,8 @@ func (p *ProbeHandler) connect() error {
 		p.deleteIfRemoved(current, result.Blockdevices)
 	}
 
-	for i := range result.Blockdevices {
-		p.registerBlockdev(result.Blockdevices[i], "")
+	for _, blockdev := range blockDevices {
+		p.registerBlockdev(blockdev, "")
 	}
 
 	return nil
@@ -512,6 +798,21 @@ func (p *ProbeHandler) newMetricsFromBlockdev(blockdevPath string) *BlockMetric 
 		return nil
 	}
 	return stats.Sysstat.Hosts[0].Statistics[0].Metrics[0].MakeCopy()
+}
+
+func (p *ProbeHandler) addBlockDevData(now, last time.Time) {
+	for _, blockdev := range p.blockdevMap {
+		currMetric := p.newMetricsFromBlockdev(fmt.Sprintf("%v", blockdev.Path))
+		if currMetric == nil {
+			continue
+		}
+		currMetric.Last = int64(common.UnixMillis(now))
+		p.Ctx.Graph.Lock()
+		tr := p.Ctx.Graph.StartMetadataTransaction(blockdev.Node)
+		tr.AddMetadata("BlockdevMetric", currMetric)
+		tr.Commit()
+		p.Ctx.Graph.Unlock()
+	}
 }
 
 func (p *ProbeHandler) updateBlockDevMetric(now, last time.Time) {
@@ -588,6 +889,5 @@ func NewProbe(ctx tp.Context, bundle *probe.Bundle) (probe.Handler, error) {
 
 // Register registers graph metadata decoders
 func Register() {
-	graph.NodeMetadataDecoders["BlockDev"] = MetadataDecoder
 	graph.NodeMetadataDecoders["BlockdevMetric"] = MetricDecoder
 }
